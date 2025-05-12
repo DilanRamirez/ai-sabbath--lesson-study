@@ -7,3 +7,5 @@ pytest
 httpx
 pytest-asyncio
 black
+faiss-cpu
+sentence-transformers

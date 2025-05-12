@@ -20,3 +20,7 @@ test-gha:
 ci:
 	make check-format-backend
 	make test-backend
+
+# Build or rebuild the semantic FAISS index for lessons + books
+index:
+	PYTHONPATH=backend python backend/app/indexing/index_builder.py

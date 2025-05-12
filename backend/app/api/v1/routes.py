@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Body, HTTPException, Query
 from typing import Literal
+from app.indexing.search_service import search_lessons
 from app.services.llm_service import generate_llm_response
 from app.services.cms_service import (
     load_lesson_by_path,
@@ -80,5 +81,30 @@ def process_llm(
     try:
         result = generate_llm_response(text, mode, lang)
         return {"result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/search")
+def semantic_search(
+    q: str = Query(..., description="Search query text"),
+    type: str = Query(
+        "all", description="Filter by document type: 'lesson', 'book', or 'all'"
+    ),
+    top_k: int = Query(5, ge=1, le=20, description="Number of top results to return"),
+):
+    """
+    Semantic search through lessons and books using FAISS.
+    """
+    try:
+        raw_results = search_lessons(q, top_k=top_k)
+
+        if type.lower() in ["lesson", "book"]:
+            filtered = [r for r in raw_results if r.get("type") == type.lower()]
+        else:
+            filtered = raw_results
+
+        return {"query": q, "results": filtered, "count": len(filtered), "filter": type}
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
