@@ -1,0 +1,56 @@
+from pathlib import Path
+import json
+from typing import Any
+
+BASE_DIR = Path("app/data")
+
+
+def load_lesson_by_path(year: str, quarter: str, lesson_id: str) -> dict[str, Any]:
+    """
+    Loads a lesson given its path structure: /data/{year}/{quarter}/{lesson_id}/lesson.json
+    """
+    lesson_path = BASE_DIR / year / quarter / lesson_id / "lesson.json"
+    if not lesson_path.exists():
+        raise FileNotFoundError(f"Lesson file not found at {lesson_path}")
+
+    with open(lesson_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_metadata_by_path(year: str, quarter: str, lesson_id: str) -> dict[str, Any]:
+    """
+    Loads metadata.json from the lesson folder.
+    Guards:
+    - Year, quarter, lesson_id must be safe strings
+    - File must exist
+    - JSON must be valid
+    """
+    if not all([year, quarter, lesson_id]):
+        raise ValueError("Missing one or more required path parameters")
+
+    metadata_path = BASE_DIR / year / quarter / lesson_id / "metadata.json"
+    if not metadata_path.exists():
+        raise FileNotFoundError(f"Metadata file not found at {metadata_path}")
+
+    try:
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        raise ValueError(f"Invalid JSON in {metadata_path}")
+
+
+def get_lesson_pdf_path(year: str, quarter: str, lesson_id: str) -> Path:
+    """
+    Returns the path to the lesson PDF file.
+    Guards:
+    - Year, quarter, lesson_id must be safe strings
+    - File must exist
+    """
+    if not all([year, quarter, lesson_id]):
+        raise ValueError("Missing one or more required path parameters")
+
+    pdf_path = BASE_DIR / year / quarter / lesson_id / "lesson.pdf"
+    if not pdf_path.exists():
+        raise FileNotFoundError(f"PDF not found at {pdf_path}")
+
+    return pdf_path
