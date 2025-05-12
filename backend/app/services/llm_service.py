@@ -1,0 +1,22 @@
+import google.generativeai as genai
+from typing import Literal
+
+from app.core.config import settings
+from app.services.prompts.sabbath import build_prompt
+
+# Initialize Gemini client
+genai.configure(api_key=settings.GEMINI_API_KEY)
+model = genai.GenerativeModel("gemini-2.0-flash-lite")
+
+
+def generate_llm_response(
+    text: str,
+    mode: Literal["explain", "reflect", "apply", "summarize"],
+    lang: str = "en"
+) -> str:
+    try:
+        prompt = build_prompt(mode, text, lang=lang)
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"[Error with Gemini SDK: {str(e)}]"

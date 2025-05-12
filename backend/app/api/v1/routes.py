@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Body, HTTPException, Query
+from typing import Literal
+from app.services.llm_service import generate_llm_response
 from app.services.cms_service import (
     load_lesson_by_path,
     load_metadata_by_path,
-    get_lesson_pdf_path
+    get_lesson_pdf_path,
+    list_all_lessons
 )
 
 
@@ -55,3 +57,29 @@ def get_lesson_pdf(year: str, quarter: str, lesson_id: str):
     except Exception:
         raise HTTPException(
             status_code=500, detail="Unexpected error loading PDF")
+
+
+@router.get("/lessons")
+def list_lessons():
+    """
+    Returns a list of all lessons available in the system.
+    Example: /api/v1/lessons
+    """
+    try:
+        return list_all_lessons()
+    except Exception:
+        raise HTTPException(status_code=500, detail="Unable to list lessons")
+
+
+@router.post("/llm")
+def process_llm(
+    text: str = Body(..., embed=True),
+    mode: Literal["explain", "reflect", "apply",
+                  "summarize"] = Body(..., embed=True),
+    lang: str = Query("en", description="Response language, e.g. 'en' or 'es'")
+):
+    try:
+        result = generate_llm_response(text, mode, lang)
+        return {"result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

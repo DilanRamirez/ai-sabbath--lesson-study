@@ -54,3 +54,44 @@ def get_lesson_pdf_path(year: str, quarter: str, lesson_id: str) -> Path:
         raise FileNotFoundError(f"PDF not found at {pdf_path}")
 
     return pdf_path
+
+
+def list_all_lessons() -> list[dict[str, Any]]:
+    """
+    Scans the lesson directory structure and loads metadata for each lesson.
+    Guards:
+    - Only returns folders that have metadata.json
+    - Skips unreadable or malformed folders
+    """
+    lessons = []
+
+    for year_dir in BASE_DIR.iterdir():
+        if not year_dir.is_dir():
+            continue
+
+        for quarter_dir in year_dir.iterdir():
+            if not quarter_dir.is_dir():
+                continue
+
+            for lesson_dir in quarter_dir.iterdir():
+                if not lesson_dir.is_dir():
+                    continue
+
+                metadata_path = lesson_dir / "metadata.json"
+                if not metadata_path.exists():
+                    continue
+
+                try:
+                    with open(metadata_path, "r", encoding="utf-8") as f:
+                        metadata = json.load(f)
+                        lessons.append({
+                            "year": year_dir.name,
+                            "quarter": quarter_dir.name,
+                            "lesson_id": lesson_dir.name,
+                            "metadata": metadata
+                        })
+                except Exception as e:
+                    print(f"Skipping {lesson_dir} due to error: {e}")
+                    continue
+
+    return lessons
