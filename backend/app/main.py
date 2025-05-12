@@ -10,7 +10,4 @@ app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/")
 def read_root():
-    return {
-        "message": f"Welcome to {settings.APP_NAME}",
-        "debug": settings.DEBUG
-    }
+    return {"message": f"Welcome to {settings.APP_NAME}", "debug": settings.DEBUG}

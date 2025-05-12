@@ -12,7 +12,7 @@ model = genai.GenerativeModel("gemini-2.0-flash-lite")
 def generate_llm_response(
     text: str,
     mode: Literal["explain", "reflect", "apply", "summarize"],
-    lang: str = "en"
+    lang: str = "en",
 ) -> str:
     try:
         prompt = build_prompt(mode, text, lang=lang)

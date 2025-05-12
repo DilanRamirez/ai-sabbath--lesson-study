@@ -5,7 +5,7 @@ from app.services.cms_service import (
     load_lesson_by_path,
     load_metadata_by_path,
     get_lesson_pdf_path,
-    list_all_lessons
+    list_all_lessons,
 )
 
 
@@ -37,26 +37,26 @@ def get_lesson_metadata(year: str, quarter: str, lesson_id: str):
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception:
-        raise HTTPException(
-            status_code=500, detail="Unexpected error loading metadata")
+        raise HTTPException(status_code=500, detail="Unexpected error loading metadata")
 
 
 @router.get("/lessons/{year}/{quarter}/{lesson_id}/pdf")
 def get_lesson_pdf(year: str, quarter: str, lesson_id: str):
     """
     Returns the PDF file for a given year, quarter, and lesson ID.
-    Example: /api/v1/lessons/2025/Q2/lesson_06/pdf
+    Example: /api/v1/lessons/2025/Q2/lesson-06/pdf
     """
     try:
         pdf_path = get_lesson_pdf_path(year, quarter, lesson_id)
-        return FileResponse(pdf_path, media_type='application/pdf', filename=f"{lesson_id}.pdf")
+        return FileResponse(
+            pdf_path, media_type="application/pdf", filename=f"{lesson_id}.pdf"
+        )
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="PDF file not found")
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception:
-        raise HTTPException(
-            status_code=500, detail="Unexpected error loading PDF")
+        raise HTTPException(status_code=500, detail="Unexpected error loading PDF")
 
 
 @router.get("/lessons")
@@ -74,9 +74,8 @@ def list_lessons():
 @router.post("/llm")
 def process_llm(
     text: str = Body(..., embed=True),
-    mode: Literal["explain", "reflect", "apply",
-                  "summarize"] = Body(..., embed=True),
-    lang: str = Query("en", description="Response language, e.g. 'en' or 'es'")
+    mode: Literal["explain", "reflect", "apply", "summarize"] = Body(..., embed=True),
+    lang: str = Query("en", description="Response language, e.g. 'en' or 'es'"),
 ):
     try:
         result = generate_llm_response(text, mode, lang)

@@ -40,16 +40,13 @@ def load_metadata_by_path(year: str, quarter: str, lesson_id: str) -> dict[str, 
 
 
 def get_lesson_pdf_path(year: str, quarter: str, lesson_id: str) -> Path:
-    """
-    Returns the path to the lesson PDF file.
-    Guards:
-    - Year, quarter, lesson_id must be safe strings
-    - File must exist
-    """
     if not all([year, quarter, lesson_id]):
         raise ValueError("Missing one or more required path parameters")
 
     pdf_path = BASE_DIR / year / quarter / lesson_id / "lesson.pdf"
+
+    print(f"[DEBUG] Looking for PDF at: {pdf_path}")
+
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF not found at {pdf_path}")
 
@@ -84,12 +81,14 @@ def list_all_lessons() -> list[dict[str, Any]]:
                 try:
                     with open(metadata_path, "r", encoding="utf-8") as f:
                         metadata = json.load(f)
-                        lessons.append({
-                            "year": year_dir.name,
-                            "quarter": quarter_dir.name,
-                            "lesson_id": lesson_dir.name,
-                            "metadata": metadata
-                        })
+                        lessons.append(
+                            {
+                                "year": year_dir.name,
+                                "quarter": quarter_dir.name,
+                                "lesson_id": lesson_dir.name,
+                                "metadata": metadata,
+                            }
+                        )
                 except Exception as e:
                     print(f"Skipping {lesson_dir} due to error: {e}")
                     continue
