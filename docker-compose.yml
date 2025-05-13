@@ -5,9 +5,9 @@ services:
     container_name: sabbath-backend
     ports:
       - "8000:8000"
-    env_file:
-      - backend/.env
     volumes:
-      - ./backend/app:/app/app             # mounts all app files
-      - ./backend/app/data:/app/app/data   # 🟢 specifically mounts lesson data
+      - ./backend/app:/app/app
+      - ./backend/app/data:/app/app/data  # ✅ this is critical
+    env_file:
+      - ./backend/.env
     restart: always

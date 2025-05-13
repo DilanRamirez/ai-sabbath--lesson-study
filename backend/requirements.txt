@@ -9,3 +9,6 @@ pytest-asyncio
 black
 faiss-cpu
 sentence-transformers
+PyPDF2
+pdfplumber
+pandas

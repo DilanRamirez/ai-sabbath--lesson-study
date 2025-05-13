@@ -51,61 +51,71 @@ def build_index():
                                 "day_index": i,
                                 "day_title": section.get("title", f"Section {i+1}"),
                                 "source": path,
+                                "text": text,
                             }
                         )
 
             except Exception as e:
                 print(f"⚠️ Skipping lesson {path}: {e}")
 
-    # --- Index Books (by chapter) ---
+    # --- Index all JSON files under BOOK_DIR ---
     if BOOK_DIR.exists():
-        # BOOK CHUNKING
-        for file in os.listdir(BOOK_DIR):
-            if not file.endswith(".json"):
-                continue
-
-            path = BOOK_DIR / file
-            print(f"📖 Indexing book: {file}")
+        for json_path in BOOK_DIR.rglob("*.json"):
+            print(f"📖 Indexing JSON: {json_path.name}")
             try:
-                with open(path, "r", encoding="utf-8") as f:
-                    book = json.load(f)
-                    title = book.get("name", file)
-                    chapters = book.get("verses")
-
-                    if chapters and isinstance(chapters, list):
-                        for i, chapter in enumerate(chapters):
-                            text = chapter.get("text") or ""
-                            text = text.strip()
+                with open(json_path, "r", encoding="utf-8") as jf:
+                    data = json.load(jf)
+                # If this JSON defines sections, index each item
+                if isinstance(data, dict) and "sections" in data:
+                    for sec in data["sections"]:
+                        sec_num = sec.get("section_number", "")
+                        for item in sec.get("items", []):
+                            title = item.get("title", "")
+                            page = item.get("page")
+                            content_list = item.get("content", [])
+                            # join list of paragraphs into one text block
+                            text = (
+                                " ".join(content_list).strip()
+                                if isinstance(content_list, list)
+                                else str(content_list).strip()
+                            )
                             if not text:
                                 continue
-
                             texts.append(text)
                             metadata.append(
                                 {
-                                    "type": "book-chapter",
-                                    "book_title": title,
-                                    "chapter_index": i,
-                                    "chapter_title": chapter.get(
-                                        "title", f"Chapter {i+1}"
-                                    ),
-                                    "source": str(path),
+                                    "type": "book-section",
+                                    "book_title": data.get("title", ""),
+                                    "book_author": data.get("author", ""),
+                                    "section_number": sec_num,
+                                    "section_title": sec.get("section_title", ""),
+                                    "page_start": sec.get("page_start"),
+                                    "page_end": sec.get("page_end"),
+                                    "item_title": title,
+                                    "page_number": page,
+                                    "source": str(json_path),
+                                    "text": text,
+                                    "book-section-id": item.get("book-section-id", ""),
                                 }
                             )
+                else:
+                    # Fallback: flat JSON with a "content" or "text" field
+                    flat = data.get("content") or data.get("text") or ""
+                    if isinstance(flat, list):
+                        text = " ".join(flat).strip()
                     else:
-                        # Fallback for flat book content
-                        flat_text = book.get("content") or book.get("text") or ""
-                        if flat_text.strip():
-                            texts.append(flat_text.strip())
-                            metadata.append(
-                                {
-                                    "type": "book",
-                                    "book_title": title,
-                                    "source": str(path),
-                                }
-                            )
-
+                        text = str(flat).strip()
+                    if text:
+                        texts.append(text)
+                        metadata.append(
+                            {
+                                "type": "json-flat",
+                                "file_name": json_path.stem,
+                                "source": str(json_path),
+                            }
+                        )
             except Exception as e:
-                print(f"⚠️ Skipping book {file}: {e}")
+                print(f"⚠️ Skipping JSON {json_path.name}: {e}")
 
     # --- Final check ---
     if not texts:

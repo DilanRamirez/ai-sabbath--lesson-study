@@ -24,3 +24,14 @@ ci:
 # Build or rebuild the semantic FAISS index for lessons + books
 index:
 	PYTHONPATH=backend python backend/app/indexing/index_builder.py
+
+api-server:
+	cd backend && uvicorn app.main:app --reload
+
+
+up:
+	docker compose up --build
+down:
+	docker compose down
+stop:
+	docker compose stop
