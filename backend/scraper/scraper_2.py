@@ -23,7 +23,7 @@ def parse_toc_format_1(pdf_path):
 def parse_toc_format_2(pdf_path):
     reader = PdfReader(pdf_path)
     text = "\n".join(
-        reader.pages[i].extract_text() or "" for i in range(min(15, len(reader.pages)))
+        reader.pages[i].extract_text() or "" for i in range(min(30, len(reader.pages)))
     )
     # Roman numerals or Arabic
     pattern = re.compile(r"^(.*?)\s*\.{3,}\s*([IVXLC]+|\d+)$", re.MULTILINE)
@@ -50,8 +50,7 @@ def parse_toc_auto(pdf_path):
     # Find the page containing "Índice general"
     for i in range(total_pages):
         text = reader.pages[i].extract_text() or ""
-        if "Índice general" or "Contenido" in text:
-            print(f"Found 'Índice general' on page {i+1}")
+        if "Índice general" in text or "Contenido" in text:
             toc_start = i
             break
     if toc_start is None:
@@ -129,7 +128,7 @@ def generate_json(pdf_path, title, author, publication_year):
 
     reader = PdfReader(pdf_path)
     total_pages = len(reader.pages)
-    print(f"Total pages in PDF: {total_pages} {toc_entries}")
+    print(f"Total pages in PDF: {total_pages}")
 
     # Build page_number_map by scanning each page for rendered page number
     page_number_map = {}
@@ -204,6 +203,9 @@ def generate_json(pdf_path, title, author, publication_year):
     # Fill each item's "content" by extracting text between its start_page and the next item/section boundary
     for section in sections:
         for idx, item in enumerate(section["items"]):
+            print(
+                f"Processing item: {idx}, item: {item}, start: {section['page_start']}, end: {section['page_end']}"
+            )
             # Determine start_idx
             start_idx = page_number_map.get(item["page"])
             if start_idx is None:
@@ -222,9 +224,37 @@ def generate_json(pdf_path, title, author, publication_year):
                     item["content"] = ""
                     continue
 
+            # Use the section's printed start page to anchor the actual start index.
+            section_start_idx = page_number_map.get(
+                section["page_start"], section["page_start"] - 1
+            )
+
+            # Instead of solely relying on the printed page number mapping,
+            # scan forward from the section start until we find the title text.
+            candidate_idx = None
+            for p in range(section_start_idx, total_pages):
+                page_text = reader.pages[p].extract_text() or ""
+                if item["title"] in page_text:
+                    candidate_idx = p
+                    break
+            start_idx = (
+                candidate_idx if candidate_idx is not None else section_start_idx
+            )
+
+            # For the end index, if there's a following item, try to detect its title in the pages.
             if idx + 1 < len(section["items"]):
-                next_page = section["items"][idx + 1]["page"]
-                end_idx = page_number_map.get(next_page, next_page - 1)
+                next_item = section["items"][idx + 1]
+                candidate_end_idx = None
+                for p in range(start_idx + 1, total_pages):
+                    page_text = reader.pages[p].extract_text() or ""
+                    if next_item["title"] in page_text:
+                        candidate_end_idx = p
+                        break
+                end_idx = (
+                    candidate_end_idx
+                    if candidate_end_idx is not None
+                    else page_number_map.get(next_item["page"], next_item["page"] - 1)
+                )
             else:
                 end_idx = page_number_map.get(section["page_end"], total_pages)
 
@@ -237,7 +267,37 @@ def generate_json(pdf_path, title, author, publication_year):
 
             pages_text = []
             for p in range(start_idx, end_idx):
-                pages_text.append(reader.pages[p].extract_text() or "")
+                page_text = reader.pages[p].extract_text() or ""
+                # In the first page, start extracting after the subheader's occurrence.
+                if p == start_idx:
+                    header_index = page_text.find(item["title"])
+                    if header_index != -1:
+                        page_text = page_text[header_index + len(item["title"]) :]
+                # If the next subheader occurs on this page, only include text up to it.
+                if idx + 1 < len(section["items"]):
+                    next_header = section["items"][idx + 1]["title"]
+                    next_index = page_text.find(next_header)
+                    if next_index != -1:
+                        page_text = page_text[:next_index]
+                        pages_text.append(page_text)
+                        break
+                pages_text.append(page_text)
+            item["content"] = "\n".join(pages_text)
+            # Print first 100 chars
+            print(f"Extracted content: {item['content'][:100]}...")
+            print("---" * 30)
+
+            # Clean up the title and author for book-section-id
+            # Remove special characters and spaces
+            # Clean both the title and the beginning of the content before comparing
+            cleaned_title = item["title"].strip(" \n–—")
+            trimmed_content = item["content"].lstrip(" \n–—")
+            # Check if the cleaned title is at the start of the content
+            if trimmed_content.startswith(cleaned_title):
+                trimmed_content = trimmed_content[len(cleaned_title) :].lstrip(" \n–—")
+            # Clean the title and author for book-section-id
+            # Remove special characters and spaces
+            # Clean both the title and the beginning of the content before comparing
 
             clean_title = re.sub(r"[^A-Za-z0-9]+", "", title).strip()
             clean_author = re.sub(r"[^A-Za-z0-9]+", "", author).strip()
@@ -265,8 +325,8 @@ def generate_json(pdf_path, title, author, publication_year):
 
 if __name__ == "__main__":
     generate_json(
-        "app/data/books/el_camino_a_cristo.pdf",
-        "El Camino a Cristo",
+        "app/data/books/Consejos_Sobre_el_Regimen_Alimenticio.pdf",
+        "Consejos Sobre el Régimen Alimenticio",
         "Ellen G. White",
         1977,
     )
