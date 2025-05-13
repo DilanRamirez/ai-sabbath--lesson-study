@@ -56,8 +56,8 @@ def parse_toc_auto(pdf_path):
     if toc_start is None:
         return []
 
-    # Extract text from toc_start to toc_start + 3 or end
-    end_page = min(toc_start + 4, total_pages)
+    # Extract text from toc_start to toc_start + 20 or end
+    end_page = min(toc_start + 20, total_pages)
     combined_text = "\n".join(
         reader.pages[i].extract_text() or "" for i in range(toc_start, end_page)
     )
@@ -123,6 +123,7 @@ def extract_chapters(pdf_path, toc_entries):
 
 def generate_json(pdf_path, title, author, publication_year):
     toc_entries = parse_toc_auto(pdf_path)
+    print(f"TOC entries: {toc_entries}")
     if not toc_entries:
         raise ValueError("No TOC entries found.")
 
@@ -266,6 +267,7 @@ def generate_json(pdf_path, title, author, publication_year):
             )
 
             pages_text = []
+            section_header_pattern = re.compile(r"^Sección\s+\d+—", re.MULTILINE)
             for p in range(start_idx, end_idx):
                 page_text = reader.pages[p].extract_text() or ""
                 # In the first page, start extracting after the subheader's occurrence.
@@ -281,6 +283,12 @@ def generate_json(pdf_path, title, author, publication_year):
                         page_text = page_text[:next_index]
                         pages_text.append(page_text)
                         break
+                # If a new section header is detected, only include text up to its start.
+                new_section_match = section_header_pattern.search(page_text)
+                if new_section_match:
+                    page_text = page_text[: new_section_match.start()]
+                    pages_text.append(page_text)
+                    break
                 pages_text.append(page_text)
             item["content"] = "\n".join(pages_text)
             # Print first 100 chars

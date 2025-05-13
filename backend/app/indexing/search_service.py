@@ -29,6 +29,9 @@ def search_lessons(query: str, top_k: int = 5) -> list[dict]:
         meta = metadata[idx]
         result = meta.copy()
         result["score"] = float(score)
+        # Add normalized score as percentage
+        result["normalized_score"] = round(100 * (1 / (1 + result["score"])), 2)
+
         result["text"] = ""
         try:
             with open(meta["source"], "r", encoding="utf-8") as f:

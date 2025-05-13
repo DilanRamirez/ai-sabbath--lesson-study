@@ -104,7 +104,9 @@ def semantic_search(
         else:
             filtered = raw_results
 
-        filtered = sorted(filtered, key=lambda x: x.get("score", 0), reverse=True)
+        filtered = sorted(
+            filtered, key=lambda x: x.get("normalized_score", 0), reverse=True
+        )
         return {"query": q, "results": filtered, "count": len(filtered), "filter": type}
 
     except Exception as e:

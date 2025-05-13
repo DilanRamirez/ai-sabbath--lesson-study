@@ -268,8 +268,8 @@ def generate_json(pdf_path, title, author, publication_year):
 
 if __name__ == "__main__":
     generate_json(
-        "app/data/books/De_la_Cuidad_al_Campo.pdf",
-        "De la Cuidad al Campo",
+        "app/data/books/el_camino_a_cristo.pdf",
+        "El Camino a Cristo",
         "Ellen G. White",
-        1975,
+        1977,
     )
