@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi.responses import FileResponse
 from typing import Literal
+import logging
 from pydantic import BaseModel, Field
 from app.indexing.search_service import search_lessons
 from app.services.llm_service import generate_llm_response
@@ -10,14 +12,13 @@ from app.services.cms_service import (
     list_all_lessons,
 )
 
-
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class QARequest(BaseModel):
     question: str
-    top_k: int = Field(default=3, ge=1, le=20,
-                       description="Must be between 1 and 20")
+    top_k: int = Field(default=3, ge=1, le=20, description="Must be between 1 and 20")
     lang: Literal["en", "es"] = "es"
 
 
@@ -30,6 +31,7 @@ def get_lesson(year: str, quarter: str, lesson_id: str):
     try:
         return load_lesson_by_path(year, quarter, lesson_id)
     except FileNotFoundError:
+        logger.error(f"Lesson not found: {year}/{quarter}/{lesson_id}")
         raise HTTPException(status_code=404, detail="Lesson not found")
 
 
@@ -42,12 +44,14 @@ def get_lesson_metadata(year: str, quarter: str, lesson_id: str):
     try:
         return load_metadata_by_path(year, quarter, lesson_id)
     except FileNotFoundError:
+        logger.error(f"Metadata not found: {year}/{quarter}/{lesson_id}")
         raise HTTPException(status_code=404, detail="Metadata not found")
     except ValueError as ve:
+        logger.error(f"Validation error: {ve}")
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception:
-        raise HTTPException(
-            status_code=500, detail="Unexpected error loading metadata")
+        logger.error(f"Internal server error: {e}")
+        raise HTTPException(status_code=500, detail="Unexpected error loading metadata")
 
 
 @router.get("/lessons/{year}/{quarter}/{lesson_id}/pdf")
@@ -62,12 +66,14 @@ def get_lesson_pdf(year: str, quarter: str, lesson_id: str):
             pdf_path, media_type="application/pdf", filename=f"{lesson_id}.pdf"
         )
     except FileNotFoundError:
+        logger.error(f"PDF not found: {year}/{quarter}/{lesson_id}")
         raise HTTPException(status_code=404, detail="PDF file not found")
     except ValueError as ve:
+        logger.error(f"Validation error: {ve}")
         raise HTTPException(status_code=400, detail=str(ve))
-    except Exception:
-        raise HTTPException(
-            status_code=500, detail="Unexpected error loading PDF")
+    except Exception as e:
+        logger.error(f"Internal server error: {e}")
+        raise HTTPException(status_code=500, detail="Unexpected error loading PDF")
 
 
 @router.get("/lessons")
@@ -79,24 +85,25 @@ def list_lessons():
     try:
         return list_all_lessons()
     except Exception:
+        logger.error("Error listing lessons", exc_info=True)
         raise HTTPException(status_code=500, detail="Unable to list lessons")
 
 
 @router.post("/llm")
 def process_llm(
     text: str = Body(..., embed=True),
-    mode: Literal["explain", "reflect", "apply",
-                  "summarize", "ask"] = Body(..., embed=True),
-    lang: str = Query(
-        "en", description="Response language, e.g. 'en' or 'es'"),
+    mode: Literal["explain", "reflect", "apply", "summarize", "ask"] = Body(
+        ..., embed=True
+    ),
+    lang: str = Query("en", description="Response language, e.g. 'en' or 'es'"),
 ):
     if not text or not text.strip():
-        raise HTTPException(
-            status_code=400, detail="Text input cannot be empty.")
+        raise HTTPException(status_code=400, detail="Text input cannot be empty.")
     try:
         result = generate_llm_response(text, mode, lang)
         return {"result": result}
     except Exception as e:
+        logger.error(f"Error processing LLM request: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -106,22 +113,19 @@ def semantic_search(
     type: str = Query(
         "all", description="Filter by document type: 'lesson', 'book', or 'all'"
     ),
-    top_k: int = Query(
-        5, ge=1, le=20, description="Number of top results to return"),
+    top_k: int = Query(5, ge=1, le=20, description="Number of top results to return"),
 ):
     """
     Semantic search through lessons and books using FAISS.
     """
     if not q or not q.strip():
-        raise HTTPException(
-            status_code=422, detail="Query string cannot be empty.")
+        raise HTTPException(status_code=422, detail="Query string cannot be empty.")
 
     try:
         raw_results = search_lessons(q, top_k=top_k)
 
         if type.lower() in ["lesson", "book"]:
-            filtered = [r for r in raw_results if r.get(
-                "type") == type.lower()]
+            filtered = [r for r in raw_results if r.get("type") == type.lower()]
         else:
             filtered = raw_results
 
@@ -131,6 +135,7 @@ def semantic_search(
         return {"query": q, "results": filtered, "count": len(filtered), "filter": type}
 
     except Exception as e:
+        logger.error(f"Error during semantic search: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -138,14 +143,14 @@ def build_prompt_from_context(
     question: str, lang: str, context_chunks: list[dict]
 ) -> str:
     if not question or not question.strip():
-        raise HTTPException(
-            status_code=400, detail="Question input cannot be empty.")
+        logger.error("Empty question input")
+        raise HTTPException(status_code=400, detail="Question input cannot be empty.")
     if not context_chunks:
-        raise HTTPException(
-            status_code=400, detail="Context chunks cannot be empty.")
+        logger.error("Empty context chunks")
+        raise HTTPException(status_code=400, detail="Context chunks cannot be empty.")
     if not isinstance(context_chunks, list):
-        raise HTTPException(
-            status_code=400, detail="Context chunks must be a list.")
+        logger.error("Invalid context chunks format")
+        raise HTTPException(status_code=400, detail="Context chunks must be a list.")
 
     context_text = "\n\n".join(
         f"[{chunk.get('type')}] {chunk.get('text', '')}" for chunk in context_chunks
@@ -176,8 +181,7 @@ def build_prompt_from_context(
 @router.post("/llm/answer")
 def generate_answer(payload: QARequest):
     if not payload.question or not payload.question.strip():
-        raise HTTPException(
-            status_code=400, detail="La pregunta no puede estar vacía.")
+        raise HTTPException(status_code=400, detail="La pregunta no puede estar vacía.")
 
     try:
         context_chunks = search_lessons(payload.question, top_k=payload.top_k)
@@ -199,7 +203,8 @@ def generate_answer(payload: QARequest):
         }
 
     except ValueError as ve:
-        raise HTTPException(
-            status_code=400, detail=f"Error de validación: {str(ve)}")
+        logger.error(f"Validation error: {ve}")
+        raise HTTPException(status_code=400, detail=f"Error de validación: {str(ve)}")
     except Exception as e:
+        logger.error(f"Internal server error: {e}")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")

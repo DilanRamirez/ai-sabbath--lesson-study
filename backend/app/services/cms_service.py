@@ -2,7 +2,8 @@ from pathlib import Path
 import json
 from typing import Any
 
-BASE_DIR = Path("app/data")
+
+BASE_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
 def load_lesson_by_path(year: str, quarter: str, lesson_id: str) -> dict[str, Any]:
@@ -61,8 +62,10 @@ def list_all_lessons() -> list[dict[str, Any]]:
     - Skips unreadable or malformed folders
     """
     lessons = []
+    print(f"[DEBUG] Scanning for lessons in {BASE_DIR}")
 
     for year_dir in BASE_DIR.iterdir():
+        print(f"[DEBUG] Checking year directory: {year_dir}")
         if not year_dir.is_dir():
             continue
 
