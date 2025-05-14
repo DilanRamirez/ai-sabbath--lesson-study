@@ -62,22 +62,36 @@ def load_chunk_text(meta: dict) -> str:
         return f"Error loading content: {e}"
 
 
+class IndexStore:
+    index = None
+    metadata = []
+
+
+def preload_index_and_metadata():
+    try:
+        IndexStore.index = load_faiss_index()
+        IndexStore.metadata = load_metadata()
+    except Exception as e:
+        print(f"[ERROR] Could not preload FAISS index: {e}")
+
+
 def search_lessons(query: str, top_k: int = 5) -> List[dict]:
     if not query or not isinstance(query, str) or not query.strip():
         return [{"error": "Query is empty or invalid."}]
 
     try:
-        index = load_faiss_index()
-        metadata = load_metadata()
+        if IndexStore.index is None or not IndexStore.metadata:
+            raise RuntimeError("FAISS index or metadata not loaded in memory.")
+
         query_vector = embed_text(query)
-        D, I = index.search(np.array([query_vector], dtype="float32"), top_k)
+        D, I = IndexStore.index.search(np.array([query_vector], dtype="float32"), top_k)
 
         results = []
         for score, idx in zip(D[0], I[0]):
-            if idx < 0 or idx >= len(metadata):
+            if idx < 0 or idx >= len(IndexStore.metadata):
                 continue
 
-            meta = metadata[idx]
+            meta = IndexStore.metadata[idx]
             score_value = float(score)
             results.append(
                 {

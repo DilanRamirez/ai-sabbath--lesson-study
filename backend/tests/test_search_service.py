@@ -5,15 +5,29 @@ from app.main import app
 client = TestClient(app)
 
 
+def test_ping_status():
+    # Use context manager so lifespan events fire (preload_index_and_metadata)
+    with TestClient(app) as client:
+        res = client.get("/api/v1/ping")
+        assert res.status_code == 200, res.text
+        data = res.json()
+        assert data["status"] == "ok"
+        assert data["faiss_index_loaded"] is True
+        assert data["metadata_loaded"] is True
+
+
 def test_search_valid_query_returns_results():
-    response = client.get("/api/v1/search?q=evangelio")
-    assert response.status_code == 200
-    data = response.json()
-    assert "results" in data
-    assert isinstance(data["results"], list)
-    assert "query" in data
-    assert data["query"] == "evangelio"
-    assert all("score" in r and "normalized_score" in r for r in data["results"])
+    with TestClient(app) as client:
+        response = client.get("/api/v1/search?q=gospel")
+        assert response.status_code == 200
+        data = response.json()
+        print(f"[DEBUG] Response data: {data['results']}")
+        assert "results" in data
+        assert isinstance(data["results"], list)
+        assert "query" in data
+        assert data["query"] == "gospel"
+        assert all(
+            "score" in r and "normalized_score" in r for r in data["results"])
 
 
 def test_search_empty_query():
