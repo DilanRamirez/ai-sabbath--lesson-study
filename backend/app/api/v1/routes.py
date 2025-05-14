@@ -103,6 +103,9 @@ def semantic_search(
     """
     Semantic search through lessons and books using FAISS.
     """
+    if not q or not q.strip():
+        raise HTTPException(status_code=422, detail="Query string cannot be empty.")
+
     try:
         raw_results = search_lessons(q, top_k=top_k)
 
