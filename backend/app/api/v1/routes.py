@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Body, HTTPException, Query
 from typing import Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.indexing.search_service import search_lessons
 from app.services.llm_service import generate_llm_response
 from app.services.cms_service import (
@@ -16,7 +16,7 @@ router = APIRouter()
 
 class QARequest(BaseModel):
     question: str
-    top_k: int = 3
+    top_k: int = Field(default=3, ge=1, le=20, description="Must be between 1 and 20")
     lang: Literal["en", "es"] = "es"
 
 
