@@ -2,91 +2,93 @@ import faiss
 import json
 import numpy as np
 from pathlib import Path
+from typing import List
 from app.indexing.embeddings import embed_text
 
-# Path setup
 BASE_DIR = Path(__file__).resolve().parent
 INDEX_FILE = BASE_DIR / "lesson_index.faiss"
 METADATA_FILE = BASE_DIR / "lesson_index_meta.json"
 
 
-def search_lessons(query: str, top_k: int = 5) -> list[dict]:
-    # Load index and metadata
-    index = faiss.read_index(str(INDEX_FILE))
+def load_faiss_index() -> faiss.Index:
+    if not INDEX_FILE.exists():
+        raise FileNotFoundError(f"Missing index file: {INDEX_FILE}")
+    return faiss.read_index(str(INDEX_FILE))
+
+
+def load_metadata() -> List[dict]:
+    if not METADATA_FILE.exists():
+        raise FileNotFoundError(f"Missing metadata file: {METADATA_FILE}")
     with open(str(METADATA_FILE), "r", encoding="utf-8") as f:
-        metadata = json.load(f)
+        return json.load(f)
 
-    print(f"🔍 Searching for '{query}'...")
-    # Embed the query
-    query_vector = embed_text(query)
-    D, I = index.search(np.array([query_vector], dtype="float32"), top_k)
 
-    results = []
-    for score, idx in zip(D[0], I[0]):
-        if idx < 0 or idx >= len(metadata):
-            continue
+def normalize_score(score: float) -> float:
+    return round(100 * (1 / (1 + score)), 2)
 
-        meta = metadata[idx]
-        result = meta.copy()
-        result["score"] = float(score)
-        # Add normalized score as percentage
-        result["normalized_score"] = round(100 * (1 / (1 + result["score"])), 2)
 
-        result["text"] = ""
-        try:
-            with open(meta["source"], "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if meta["type"] == "lesson-section":
-                    # your existing lesson logic
-                    section = data.get("lesson", {}).get("daily_sections", [])[
-                        meta["day_index"]
-                    ]
-                    result["text"] = " ".join(section.get("content", []))
+def load_chunk_text(meta: dict) -> str:
+    try:
+        with open(meta["source"], "r", encoding="utf-8") as f:
+            data = json.load(f)
 
-                elif meta["type"] == "book-section":
-                    # support De_la_Ciudad_al_Campo metadata which uses section_number and item_title
-                    sections = data.get("sections", [])
-                    # determine section index (metadata may use section_index or section_number)
-                    section_idx = meta.get("section_index", meta.get("section_number"))
-                    if section_idx is not None and 0 <= section_idx < len(sections):
-                        section_item = next(
-                            (
-                                sec
-                                for sec in sections
-                                if sec.get("section_number") == section_idx
-                            ),
-                            None,
-                        )
-                        items = (
-                            section_item.get("items", [])
-                            if section_item is not None
-                            else []
-                        )
-                        # try to find the item by book-section-id first
-                        book_section_id = meta.get("book-section-id")
-                        found_item = None
-                        if book_section_id:
-                            for item in items:
-                                if item.get("book-section-id") == book_section_id:
-                                    found_item = item
-                                    break
-                        if not found_item:
-                            # fallback: find by title if no explicit id match
-                            result["text"] = meta.get("text", "")
-                        if found_item:
-                            result["text"] = found_item.get("content", "")
-                        else:
-                            result["text"] = meta.get("text", "")
-                    else:
-                        result["text"] = meta.get("text", "")
+        if meta["type"] == "lesson-section":
+            sections = data.get("lesson", {}).get("daily_sections", [])
+            idx = meta.get("day_index")
+            if idx is not None and 0 <= idx < len(sections):
+                return " ".join(sections[idx].get("content", []))
 
-                else:
-                    # fallback: load entire flat text
-                    result["text"] = data.get("content") or data.get("text", "")
+        elif meta["type"] == "book-section":
+            sections = data.get("sections", [])
+            section_idx = meta.get("section_index", meta.get("section_number"))
+            section = next(
+                (s for s in sections if s.get("section_number") == section_idx), None
+            )
+            items = section.get("items", []) if section else []
+            book_id = meta.get("book-section-id")
 
-        except Exception as e:
-            result["error"] = f"Error loading content: {e}"
+            found = next(
+                (item for item in items if item.get("book-section-id") == book_id), None
+            )
+            if not found:
+                page = meta.get("page_number")
+                found = next((item for item in items if item.get("page") == page), None)
 
-        results.append(result)
+            return found.get("content", "") if found else meta.get("text", "")
 
-    return results
+        else:
+            return data.get("content") or data.get("text", "")
+    except Exception as e:
+        return f"Error loading content: {e}"
+
+
+def search_lessons(query: str, top_k: int = 5) -> List[dict]:
+    if not query or not isinstance(query, str) or not query.strip():
+        return [{"error": "Query is empty or invalid."}]
+
+    try:
+        index = load_faiss_index()
+        metadata = load_metadata()
+        query_vector = embed_text(query)
+        D, I = index.search(np.array([query_vector], dtype="float32"), top_k)
+
+        results = []
+        for score, idx in zip(D[0], I[0]):
+            if idx < 0 or idx >= len(metadata):
+                continue
+
+            meta = metadata[idx]
+            score_value = float(score)
+            results.append(
+                {
+                    **meta,
+                    "score": score_value,
+                    "normalized_score": normalize_score(score_value),
+                    "text": load_chunk_text(meta),
+                }
+            )
+
+        return results
+
+    except Exception as e:
+        return [{"error": str(e)}]

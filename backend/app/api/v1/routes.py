@@ -120,37 +120,51 @@ def semantic_search(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def build_prompt_from_context(
+    question: str, lang: str, context_chunks: list[dict]
+) -> str:
+    context_text = "\n\n".join(
+        f"[{chunk.get('type')}] {chunk.get('text', '')}" for chunk in context_chunks
+    )
+    instructions = (
+        "Responde exclusivamente en español. Sé conciso, claro y pastoral. Basa tu respuesta únicamente en el contenido proporcionado en el contexto. "
+        "Si el contexto no contiene suficiente información, dilo con honestidad."
+        if lang == "es"
+        else "Respond exclusively in English. Be concise, clear, and Christ-centered. Use only the provided context. If insufficient, state it honestly."
+    )
+    return f"""
+        Usa el siguiente contexto para responder la pregunta de forma clara, espiritual y pastoral. Si el contexto no es suficiente, dilo con honestidad.
+
+        <Contexto>
+        {context_text}
+        </Contexto>
+
+        <Pregunta>
+        {question}
+        </Pregunta>
+
+        <Instrucciones>
+        {instructions}
+        </Instrucciones>
+    """
+
+
 @router.post("/llm/answer")
 def generate_answer(payload: QARequest):
-    print(f"Received payload: {payload}")
+    if not payload.question or not payload.question.strip():
+        raise HTTPException(status_code=400, detail="La pregunta no puede estar vacía.")
+
     try:
         context_chunks = search_lessons(payload.question, top_k=payload.top_k)
-        print(f"Context chunks: {context_chunks}")
-
         if not context_chunks:
-            raise HTTPException(status_code=404, detail="No relevant context found.")
+            raise HTTPException(
+                status_code=404,
+                detail="No se encontró contexto relevante para esta pregunta.",
+            )
 
-        context_text = "\n\n".join(
-            f"[{chunk.get('type')}] {chunk.get('text', '')}" for chunk in context_chunks
+        prompt = build_prompt_from_context(
+            payload.question, payload.lang, context_chunks
         )
-
-        prompt = f"""
-            Usa el siguiente contexto para responder la pregunta de forma clara, espiritual y pastoral. Si el contexto no es suficiente, dilo con honestidad.
-
-            <Contexto>
-            {context_text}
-            </Contexto>
-
-            <Pregunta>
-            {payload.question}
-            </Pregunta>
-
-            
-            <Instrucciones>
-                Responde exclusivamente en español si "{payload.lang}" es igual a "es". De otra manera responde en inglés. Sé conciso, claro y pastoral. Basa tu respuesta únicamente en el contenido proporcionado en el contexto. Si el contexto no contiene suficiente información, genera una respuesta lógica.
-            </Instrucciones>
-        """
-        print(f"Prompt: {prompt}")
         answer = generate_llm_response(prompt, mode="reflect")
 
         return {
@@ -159,5 +173,7 @@ def generate_answer(payload: QARequest):
             "context_used": len(context_chunks),
         }
 
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=f"Error de validación: {str(ve)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
