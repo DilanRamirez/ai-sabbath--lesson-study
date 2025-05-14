@@ -1,5 +1,6 @@
 import google.generativeai as genai
 from typing import Literal
+import logging
 
 from app.core.config import settings
 from app.services.prompts.sabbath import build_prompt
@@ -14,9 +15,12 @@ def generate_llm_response(
     mode: Literal["explain", "reflect", "apply", "summarize"],
     lang: str = "en",
 ) -> str:
+    if not text or not text.strip():
+        return "[Error: Empty input provided to LLM]"
     try:
         prompt = build_prompt(mode, text, lang=lang)
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
+        logging.error(f"Error generating LLM response: {e}")
         return f"[Error with Gemini SDK: {str(e)}]"

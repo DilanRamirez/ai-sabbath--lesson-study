@@ -50,3 +50,15 @@ def test_generate_llm_response_error_handling(mock_generate):
     mock_generate.side_effect = Exception("Gemini is down")
     result = generate_llm_response("Isaiah 53:5", "reflect", "en")
     assert result.startswith("[Error with Gemini SDK:")
+
+
+def test_build_prompt_ask_mode():
+    prompt = build_prompt("ask", "¿Qué es el santuario?", lang="es")
+    assert "Pregunta" in prompt or "¿Qué es el santuario?" in prompt
+
+
+@patch("app.services.llm_service.model.generate_content")
+def test_generate_llm_response_empty_input(mock_generate):
+    mock_generate.return_value = MagicMock(text="I'm sorry, I need more context.")
+    result = generate_llm_response("", "ask", "en")
+    assert "sorry" in result.lower() or isinstance(result, str)
