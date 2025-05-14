@@ -1,22 +1,27 @@
-import logging
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.core.config import settings
-from app.api.v1.routes import router as api_router
+
 from app.indexing.search_service import preload_index_and_metadata
+from app.api.v1.routes import router as api_router  # your public routes
+from app.api.v1.admin_routes import router as admin_router  # admin‐only
+from app.core.config import settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Load FAISS index + metadata once at startup
     preload_index_and_metadata()
     yield
+    # (optional teardown)
 
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+app = FastAPI(lifespan=lifespan)
 
-app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
+# Public endpoints (search, LLM, lessons, etc.)
 app.include_router(api_router, prefix="/api/v1")
+
+# Admin endpoints, protected by X-API-Key
+app.include_router(admin_router, prefix="/api/v1/admin")
 
 
 @app.get("/")

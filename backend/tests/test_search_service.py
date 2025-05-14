@@ -26,8 +26,7 @@ def test_search_valid_query_returns_results():
         assert isinstance(data["results"], list)
         assert "query" in data
         assert data["query"] == "gospel"
-        assert all(
-            "score" in r and "normalized_score" in r for r in data["results"])
+        assert all("score" in r and "normalized_score" in r for r in data["results"])
 
 
 def test_search_empty_query():

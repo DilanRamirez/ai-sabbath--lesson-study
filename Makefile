@@ -25,10 +25,14 @@ ci:
 index:
 	PYTHONPATH=backend python backend/app/indexing/index_builder.py
 
-api-server:
-	cd backend && uvicorn app.main:app --reload
+.PHONY: serve-local
+serve-local:
+	cd backend && python -m uvicorn app.main:app \
+		--reload \
+		--host 0.0.0.0 \
+		--port 8000
 
-
+# DOCKER COMMANDS
 up:
 	docker compose up --build
 down:

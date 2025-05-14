@@ -8,11 +8,10 @@ client = TestClient(app)
 @pytest.mark.parametrize("mode", ["explain", "reflect", "apply", "summarize", "ask"])
 def test_llm_modes_valid(mode):
     response = client.post(
-        "/api/v1/llm",
+        f"/api/v1/llm?lang=es",
         json={
             "text": "¿Qué significa tener fe en medio de la prueba?",
             "mode": mode,
-            "lang": "es",
         },
     )
     assert response.status_code == 200
@@ -24,11 +23,10 @@ def test_llm_modes_valid(mode):
 
 def test_llm_mode_ask_custom_question():
     response = client.post(
-        "/api/v1/llm",
+        f"/api/v1/llm?lang=es",
         json={
             "text": "¿Cuál es el mensaje principal del libro de Apocalipsis?",
             "mode": "ask",
-            "lang": "es",
         },
     )
     assert response.status_code == 200
@@ -39,20 +37,18 @@ def test_llm_mode_ask_custom_question():
 
 
 def test_llm_missing_text():
-    response = client.post("/api/v1/llm", json={"mode": "reflect", "lang": "es"})
+    response = client.post("/api/v1/llm", json={"mode": "reflect"})
     assert response.status_code == 422
 
 
 def test_llm_invalid_mode():
     response = client.post(
         "/api/v1/llm",
-        json={"text": "Este es un texto de prueba", "mode": "meditate", "lang": "es"},
+        json={"text": "Este es un texto de prueba", "mode": "meditate"},
     )
     assert response.status_code == 422
 
 
 def test_llm_empty_text():
-    response = client.post(
-        "/api/v1/llm", json={"text": "   ", "mode": "apply", "lang": "es"}
-    )
+    response = client.post("/api/v1/llm", json={"text": "   ", "mode": "apply"})
     assert response.status_code in [400, 422]
