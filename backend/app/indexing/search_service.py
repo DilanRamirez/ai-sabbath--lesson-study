@@ -36,7 +36,6 @@ def search_lessons(query: str, top_k: int = 5) -> list[dict]:
         try:
             with open(meta["source"], "r", encoding="utf-8") as f:
                 data = json.load(f)
-
                 if meta["type"] == "lesson-section":
                     # your existing lesson logic
                     section = data.get("lesson", {}).get("daily_sections", [])[
@@ -49,7 +48,6 @@ def search_lessons(query: str, top_k: int = 5) -> list[dict]:
                     sections = data.get("sections", [])
                     # determine section index (metadata may use section_index or section_number)
                     section_idx = meta.get("section_index", meta.get("section_number"))
-
                     if section_idx is not None and 0 <= section_idx < len(sections):
                         section_item = next(
                             (
@@ -69,23 +67,18 @@ def search_lessons(query: str, top_k: int = 5) -> list[dict]:
                         found_item = None
                         if book_section_id:
                             for item in items:
-
                                 if item.get("book-section-id") == book_section_id:
                                     found_item = item
                                     break
                         if not found_item:
                             # fallback: find by title if no explicit id match
-                            page_number = meta.get("page_number")
-                            for item in items:
-                                if item.get("page") == page_number:
-                                    found_item = item
-                                    break
+                            result["text"] = meta.get("text", "")
                         if found_item:
                             result["text"] = found_item.get("content", "")
                         else:
-                            result["text"] = ""
+                            result["text"] = meta.get("text", "")
                     else:
-                        result["text"] = ""
+                        result["text"] = meta.get("text", "")
 
                 else:
                     # fallback: load entire flat text

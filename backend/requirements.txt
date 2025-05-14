@@ -12,3 +12,4 @@ sentence-transformers
 PyPDF2
 pdfplumber
 pandas
+hf_xet

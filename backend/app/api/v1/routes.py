@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Body, HTTPException, Query
 from typing import Literal
+from pydantic import BaseModel
 from app.indexing.search_service import search_lessons
 from app.services.llm_service import generate_llm_response
 from app.services.cms_service import (
@@ -11,6 +12,12 @@ from app.services.cms_service import (
 
 
 router = APIRouter()
+
+
+class QARequest(BaseModel):
+    question: str
+    top_k: int = 3
+    lang: Literal["en", "es"] = "es"
 
 
 @router.get("/lessons/{year}/{quarter}/{lesson_id}")
@@ -108,6 +115,49 @@ def semantic_search(
             filtered, key=lambda x: x.get("normalized_score", 0), reverse=True
         )
         return {"query": q, "results": filtered, "count": len(filtered), "filter": type}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/llm/answer")
+def generate_answer(payload: QARequest):
+    print(f"Received payload: {payload}")
+    try:
+        context_chunks = search_lessons(payload.question, top_k=payload.top_k)
+        print(f"Context chunks: {context_chunks}")
+
+        if not context_chunks:
+            raise HTTPException(status_code=404, detail="No relevant context found.")
+
+        context_text = "\n\n".join(
+            f"[{chunk.get('type')}] {chunk.get('text', '')}" for chunk in context_chunks
+        )
+
+        prompt = f"""
+            Usa el siguiente contexto para responder la pregunta de forma clara, espiritual y pastoral. Si el contexto no es suficiente, dilo con honestidad.
+
+            <Contexto>
+            {context_text}
+            </Contexto>
+
+            <Pregunta>
+            {payload.question}
+            </Pregunta>
+
+            
+            <Instrucciones>
+                Responde exclusivamente en español si "{payload.lang}" es igual a "es". De otra manera responde en inglés. Sé conciso, claro y pastoral. Basa tu respuesta únicamente en el contenido proporcionado en el contexto. Si el contexto no contiene suficiente información, genera una respuesta lógica.
+            </Instrucciones>
+        """
+        print(f"Prompt: {prompt}")
+        answer = generate_llm_response(prompt, mode="reflect")
+
+        return {
+            "question": payload.question,
+            "answer": answer,
+            "context_used": len(context_chunks),
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

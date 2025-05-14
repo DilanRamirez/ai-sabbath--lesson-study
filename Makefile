@@ -33,5 +33,5 @@ up:
 	docker compose up --build
 down:
 	docker compose down
-stop:
-	docker compose stop
+reload:
+	docker compose down && docker compose up --build
