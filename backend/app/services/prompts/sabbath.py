@@ -73,6 +73,20 @@ Avoid speculative theology or non-biblical commentary. Be warm, respectful, and 
 """
         )
 
+    elif mode == "ask":
+        return (
+            base_instructions.format(TEXT=text)
+            + """
+1. Write a thoughtful question that encourages deeper exploration of the text.
+2. The question should be open-ended and invite discussion.
+3. Avoid yes/no questions or overly simplistic queries.
+4. Aim for a question that could lead to a meaningful Sabbath School discussion.
+5. Use no more than 2 sentences to frame the question.
+6. Consider the context of the lesson and its relevance to the audience.
+</Instructions>
+"""
+        )
+
     else:
         return (
             base_instructions.format(TEXT=text)
