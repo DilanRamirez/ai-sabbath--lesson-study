@@ -156,28 +156,68 @@ def semantic_search(
 
 @router.post("/llm/answer")
 def generate_answer(payload: QARequest):
+    """
+    Generates a response for a given question.
+    1. Searches for relevant lessons using the question as a query.
+    2. Combines the lesson fragments into a single text.
+    3. Generates a response using the LLM model.
+    Example: /api/v1/llm/answer
+    Body: {
+        "question": "What does justification by faith mean?",
+        "top_k": 3,
+        "lang": "es",
+        "mode": "explain",
+    }
+    """
     if not payload.question or not payload.question.strip():
         raise HTTPException(status_code=400, detail="La pregunta no puede estar vacía.")
 
     try:
         context_chunks = search_lessons(payload.question, top_k=payload.top_k)
-        # 2. Turn those chunks into one big string:
-        context_text = "\n\n".join(chunk["text"] for chunk in context_chunks)
+        # 2a. Collect RAG references and raw texts
+        rag_refs: dict[str, str] = {}
+        formatted_chunks: list[str] = []
+        for idx, chunk in enumerate(context_chunks):
+            text = chunk.get("text", "")
+            ref = None
+            if chunk.get("type") == "book-section":
+
+                ref = {
+                    "book_title": chunk.get("book_title", ""),
+                    "section_number": chunk.get("section_number", ""),
+                    "section_title": chunk.get("section_title", ""),
+                    "page_number": chunk.get("page_number", ""),
+                }
+            elif chunk.get("type") == "lesson-section":
+                ref = {
+                    "lesson_number": chunk.get("lesson_number", ""),
+                    "title": chunk.get("title", ""),
+                    "day_title": chunk.get("day_title", ""),
+                    "day_index": chunk.get("day_index", ""),
+                }
+            if ref:
+                rag_refs[str(idx)] = ref
+            formatted_chunks.append(text)
+
+        # 2b. Build the combined context text
+        context_text = "\n\n".join(formatted_chunks)
+
         if not context_chunks:
             raise HTTPException(
                 status_code=404,
                 detail="No se encontró contexto relevante para esta pregunta.",
             )
-        print("payload", payload, context_text)
         # 3. generate_llm_response
-        answer = generate_llm_response(
+        response = generate_llm_response(
             payload.question, payload.mode, context_text, payload.lang
         )
 
         return {
             "question": payload.question,
-            "answer": answer,
+            "answer": response.get("answer", ""),
             "context_used": len(context_chunks),
+            "rag_refs": rag_refs,
+            "other_refs": response.get("refs", ""),
         }
 
     except ValueError as ve:

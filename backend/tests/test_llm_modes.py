@@ -2,6 +2,18 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
+
+@pytest.fixture(autouse=True)
+def mock_llm(monkeypatch):
+    # Stub out the LLM call to prevent external API requests
+    def fake_generate_llm_response(text, mode, context=None, lang="es"):
+        return {"stub": True, "mode": mode, "text": text}
+
+    monkeypatch.setattr(
+        "app.services.llm_service.generate_llm_response", fake_generate_llm_response
+    )
+
+
 client = TestClient(app)
 
 
@@ -17,7 +29,7 @@ def test_llm_modes_valid(mode):
     assert response.status_code == 200
     data = response.json()
     assert "result" in data
-    assert isinstance(data["result"], str)
+    assert isinstance(data["result"], dict)
     assert len(data["result"]) > 0
 
 
@@ -32,7 +44,7 @@ def test_llm_mode_ask_custom_question():
     assert response.status_code == 200
     data = response.json()
     assert "result" in data
-    assert isinstance(data["result"], str)
+    assert isinstance(data["result"], dict)
     assert len(data["result"]) > 0
 
 

@@ -18,6 +18,7 @@ test-gha:
 
 # Full local CI simulation
 ci:
+	make format-backend
 	make check-format-backend
 	make test-backend
 

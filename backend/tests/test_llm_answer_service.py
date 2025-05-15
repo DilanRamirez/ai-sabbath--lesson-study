@@ -11,6 +11,7 @@ def test_llm_answer_valid_input():
                 "question": "¿Qué significa la justificación por la fe?",
                 "top_k": 3,
                 "lang": "es",
+                "mode": "explain",
             },
         )
         assert response.status_code == 200
