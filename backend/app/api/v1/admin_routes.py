@@ -8,7 +8,6 @@ from app.indexing.search_service import preload_index_and_metadata, IndexStore
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/v1/admin",
     tags=["admin"],
     dependencies=[Depends(get_api_key)],
 )
@@ -22,7 +21,8 @@ def reindex():
     try:
         logger.info("🔄 Admin triggered reindex()")
         preload_index_and_metadata()
-        logger.info(f"✅ Reindex complete: {len(IndexStore.metadata)} chunks loaded")
+        logger.info(
+            f"✅ Reindex complete: {len(IndexStore.metadata)} chunks loaded")
         return JSONResponse(
             content={
                 "status": "reindexed",
