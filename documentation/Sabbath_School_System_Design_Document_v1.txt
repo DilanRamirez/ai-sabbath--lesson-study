@@ -1,0 +1,1 @@
+System Design Document (SDD)# System Design Document (SDD)**Project:** Interactive Sabbath School Study App  **Prepared by:** [Your Name]  **Version:** 1.0  **Date:** [YYYY-MM-DD]...(This content would normally be loaded directly from the textdoc)
