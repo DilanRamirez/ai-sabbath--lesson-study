@@ -219,6 +219,7 @@ def fetch_bible_text(ref: str) -> str:
             print("Incomplete Bible reference.")
             return ""
         url = f"https://bible-api.com/{api_ref.replace(' ', '+')}"
+        print(f"Bible reference: {api_ref}")
         resp = requests.get(url, timeout=5)
         resp.raise_for_status()
         data = resp.json()
@@ -358,6 +359,7 @@ def build_prompt(
         # Build the final prompt using the template
         prompt = template.format(context=truncated, question=question, lang=lang)
 
+        print(f"Prompt: {prompt}")
         return {"prompt": prompt, "refs": refs}
     except Exception as e:
         # Log the error and return a fallback prompt

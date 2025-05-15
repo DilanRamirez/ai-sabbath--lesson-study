@@ -37,8 +37,12 @@ def build_index():
                     for i, section in enumerate(sections):
                         content_list = section.get("content", [])
                         text = " ".join(content_list).strip()
-                        if not text:
-                            continue
+                        quote_list = section.get("quotes", [])
+                        if isinstance(quote_list, list):
+                            quote_list = [str(q["text"]) for q in quote_list]
+                            if not text:
+                                continue
+                        quote_text = " ".join(quote_list).strip()
 
                         texts.append(text)
                         metadata.append(
@@ -47,11 +51,13 @@ def build_index():
                                 "lesson_id": lesson.get("id"),
                                 "lesson_number": lesson.get("lesson_number"),
                                 "title": lesson.get("title"),
-                                "week_end_date": lesson.get("week_end_date"),
-                                "day_index": i,
+                                "day_date": section.get("date"),
+                                "day": section.get("day"),
+                                "day_index": i + 1,
                                 "day_title": section.get("title", f"Section {i+1}"),
                                 "source": path,
                                 "text": text,
+                                "quote": quote_text,
                             }
                         )
 
