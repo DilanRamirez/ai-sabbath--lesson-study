@@ -38,12 +38,6 @@ const lessonSlice = createSlice({
   },
 });
 
-export const {
-  setLesson,
-  setMetadata,
-  setSelectedDay,
-  setLessonLoading,
-  setLessonError,
-} = lessonSlice.actions;
+export const { setLesson, setMetadata, setSelectedDay, setLessonLoading, setLessonError } = lessonSlice.actions;
 
 export default lessonSlice.reducer;

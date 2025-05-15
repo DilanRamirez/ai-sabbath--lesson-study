@@ -1,5 +1,11 @@
 import { configureStore } from "@reduxjs/toolkit";
 import userReducer from "./slices/user/user-slice";
+
+declare var process: {
+  env: {
+    NODE_ENV: string;
+  };
+};
 import lessonReducer from "./slices/lesson/lesson-slice";
 import themeReducer from "./slices/theme/theme-slice";
 import { logger } from "./logger";
@@ -12,8 +18,7 @@ export const store = configureStore({
     lesson: lessonReducer,
     theme: themeReducer,
   },
-  middleware: (getDefaultMiddleware) =>
-    isDev ? getDefaultMiddleware().concat(logger) : getDefaultMiddleware(),
+  middleware: (getDefaultMiddleware) => (isDev ? getDefaultMiddleware().concat(logger) : getDefaultMiddleware()),
 });
 // Infer typed hooks
 export type RootState = ReturnType<typeof store.getState>;

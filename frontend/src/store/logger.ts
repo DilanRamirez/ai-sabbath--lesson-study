@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+/* global console */
 export const logger = (storeAPI: any) => (next: any) => (action: any) => {
   console.group(action.type);
   console.info("Dispatching:", action);
